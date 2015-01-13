@@ -1,4 +1,4 @@
-package edu.gslis.hadoop.wiki;
+    package edu.gslis.hadoop.wiki;
 
 import java.io.IOException;
 
@@ -40,7 +40,7 @@ import org.lemurproject.kstem.Stemmer;
 public class WikiWordCount extends Configured implements Tool 
 {
 
-    static int MIN_FREQ = 1;
+    static int MIN_FREQ = 500;
     
     public static class WikiWordCountMapper extends MapReduceBase 
         implements Mapper<LongWritable, WikiPage, Text, IntWritable> 
@@ -75,7 +75,7 @@ public class WikiWordCount extends Configured implements Tool
 
           while (tokenizer.hasMoreTokens()) {
               String w = tokenizer.nextToken();
-              if (! w.matches("\\d+(\\.\\d+)?")) {
+              if (! w.matches("[0-9]+")) {
                   words.add(stemmer.stem(w));
               }
           }

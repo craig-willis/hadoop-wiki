@@ -3,11 +3,11 @@ package edu.gslis.hadoop.wiki;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.io.StringWriter;
 
 import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
+import org.mortbay.log.Log;
 import org.sweble.wikitext.engine.CompiledPage;
 import org.sweble.wikitext.engine.PageId;
 import org.sweble.wikitext.engine.PageTitle;
@@ -26,6 +26,11 @@ public class WikiPage implements Writable {
   private String wikitext = null;
   private org.sweble.wikitext.engine.Compiler compiler;
   SimpleWikiConfiguration config;
+
+  public WikiPage() { 
+      this.compiler = null;
+      this.config = null;
+  }
   
   public WikiPage(org.sweble.wikitext.engine.Compiler compiler, SimpleWikiConfiguration config) {
       this.compiler = compiler;
@@ -88,22 +93,34 @@ public class WikiPage implements Writable {
       
       if (text == null) 
       {
-          try
+          if (config != null && compiler != null)
           {
-              // Retrieve a page
-              PageTitle pageTitle = PageTitle.make(config, title);
+              try
+              {
+                  // Retrieve a page
+                  PageTitle pageTitle = PageTitle.make(config, title);
+            
+                  PageId pageId = new PageId(pageTitle, -1);
+            
+                  // Compile the retrieved page
+                  CompiledPage cp = compiler.postprocess(pageId, wikiText, null);
+                    
+                  TextConverter p = new TextConverter(config, 80);
+                  text = (String) p.go(cp.getPage());
         
-              PageId pageId = new PageId(pageTitle, -1);
-        
-              // Compile the retrieved page
-              CompiledPage cp = compiler.postprocess(pageId, wikiText, null);
-                
-              TextConverter p = new TextConverter(config, 80);
-              text = (String) p.go(cp.getPage());
-    
-          } catch (Exception e) {
-              e.printStackTrace();
+              } catch (Exception e) {
+                  Log.warn("Error parsing wikitext for page " + title  + " (" + e.getMessage() + ")");
+              } catch (OutOfMemoryError e) {
+                  Log.warn("Error parsing wikitext for page " + title  + " (" + wikiText.length() + ")");
+                  e.printStackTrace();
+                  throw(e);
+              }
           }
+          else {
+              // The old-fashioned way
+              text = wikiText.replaceAll("[^A-Za-z0-9]", " ");
+          }
+              
       }
       return text;
 

@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.io.FileUtils;
@@ -75,8 +74,15 @@ public class WikiMutualInfo extends Configured implements Tool
                   for (URI file: files) {
                       if (file.toString().contains("mutual-info-words"))
                       {
-                          List<String> words = FileUtils.readLines(new File(file));
-                          wordList.addAll(words);
+                          
+                          FileSystem fs = FileSystem.get(new Configuration());
+                          Path path = new Path(file.toString());
+                          BufferedReader br=new BufferedReader(new InputStreamReader(fs.open(path)));
+                          String line;
+                          while ((line = br.readLine()) != null) {
+                              wordList.add(stemmer.stem(line));
+                          }
+                          
                           System.out.println("Read " + wordList.size() + " words from wordList " + file.toString());
                       }
                   }
@@ -117,7 +123,7 @@ public class WikiMutualInfo extends Configured implements Tool
           Set<String> words = new HashSet<String>();
           while (tokenizer.hasMoreTokens()) {
               String w = tokenizer.nextToken();
-              if (! w.matches("\\d+(\\.\\d+)?")) {
+              if (! w.matches("[0-9]+")) {
                   words.add(stemmer.stem(w));
               }
           }
@@ -129,7 +135,7 @@ public class WikiMutualInfo extends Configured implements Tool
               // but shouldn't effect MI values.
               String word1 = (String)it1.next();
               
-              // If      provided, only collect terms for those words in the list
+              // If provided, only collect terms for those words in the list
               if ((wordList.size() > 0) && (!wordList.contains(word1)))
                   continue;
               
@@ -140,7 +146,7 @@ public class WikiMutualInfo extends Configured implements Tool
               while (it2.hasNext()) {
                   String word2 = (String)it2.next();
                   
-                  if (word1.equals(word2))
+                  if (word1.equals(word2)  || (wordList.size() > 0) && (!wordList.contains(word2)))
                       continue;
                   
                   Text term2 = new Text();
@@ -263,7 +269,7 @@ public class WikiMutualInfo extends Configured implements Tool
                     double nX1 = documentFreq.get(word1);
                     double nY1 = documentFreq.get(word2);
     
-                    logger.info(word1 + "," + word2 + "," + totalNumDocs + "," + nX1Y1 + "," + nX1 + "," + nY1);
+                    //logger.info(word1 + "," + word2 + "," + totalNumDocs + "," + nX1Y1 + "," + nX1 + "," + nY1);
                     double emim = calculateEmim(totalNumDocs, nX1Y1, nX1, nY1);
                     
                     wordPair.set(word1 + "\t" + word2);
@@ -363,10 +369,8 @@ public class WikiMutualInfo extends Configured implements Tool
         mi.setJobName("wiki-pmi");
         mi.set("numDocs", String.valueOf(numDocs));
 
-        /*
         mi.set("wordListPath", wordListPath.toUri().toString());
         DistributedCache.addCacheFile(wordListPath.toUri(), mi);
-        */
 
         mi.setJarByClass(WikiMutualInfo.class);
 

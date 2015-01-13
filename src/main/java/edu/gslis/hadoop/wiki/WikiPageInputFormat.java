@@ -31,11 +31,11 @@ public class WikiPageInputFormat extends
   {
 	  private XmlRecordReader reader = null;
 	  
-	  SimpleWikiConfiguration config = new SimpleWikiConfiguration(
-	              "classpath:/org/sweble/wikitext/engine/SimpleWikiConfiguration.xml");
+	  //SimpleWikiConfiguration config = new SimpleWikiConfiguration(
+	  //            "classpath:/org/sweble/wikitext/engine/SimpleWikiConfiguration.xml");
 
 	  // Instantiate a compiler for wiki pages
-	  org.sweble.wikitext.engine.Compiler compiler = new org.sweble.wikitext.engine.Compiler(config);
+	  //org.sweble.wikitext.engine.Compiler compiler = new org.sweble.wikitext.engine.Compiler(config);
 	  
 	  public WikiDocumentRecordReader(FileSplit split, JobConf conf) throws IOException
 	  {
@@ -55,7 +55,8 @@ public class WikiPageInputFormat extends
 	  }
 	  
 	  public WikiPage createValue() {
-		  return new WikiPage(compiler, config);
+	      return new WikiPage();
+		  //return new WikiPage(compiler, config);
 	  }
 	  public long getPos() throws IOException {
 		return reader.getPos();
