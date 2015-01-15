@@ -270,10 +270,12 @@ public class WikiMutualInfo extends Configured implements Tool
                     double nY1 = documentFreq.get(word2);
     
                     //logger.info(word1 + "," + word2 + "," + totalNumDocs + "," + nX1Y1 + "," + nX1 + "," + nY1);
-                    double emim = calculateEmim(totalNumDocs, nX1Y1, nX1, nY1);
+                    //double emim = calculateEmim(totalNumDocs, nX1Y1, nX1, nY1);
+                    double npmi = calculateNPMI(totalNumDocs, nX1Y1, nX1, nY1);
+                    
                     
                     wordPair.set(word1 + "\t" + word2);
-                    mutualInfo.set(emim);
+                    mutualInfo.set(npmi);
                     output.collect(wordPair, mutualInfo);
                 }
             }
@@ -322,8 +324,31 @@ public class WikiMutualInfo extends Configured implements Tool
             
             return emim;
         }
-
-
+        
+        private double calculateNPMI(double N, double nX1Y1, double nX1, double nY1)
+        {
+            
+            //        | wordY | ~wordY |
+            // -------|-------|--------|------
+            //  wordX | nX1Y1 | nX1Y0  | nX1
+            // ~wordX | nX0Y1 | nX0Y0  | nX0
+            // -------|-------|--------|------
+            //        |  nY1  |  nY0   | gt
+    
+    
+            // Marginal probabilities (smoothed)
+            double pX1 = (nX1 + 0.5)/(1+N);
+            double pY1 = (nY1 + 0.5)/(1+N);
+            
+            // Joint probabilities (smoothed)
+            double pX1Y1 = (nX1Y1 + 0.25) / (1+N);
+            
+            // Ala http://www.aclweb.org/anthology/W13-0102
+            double pmi = log2(pX1Y1, pX1*pY1);
+            double npmi = pmi / Math.log(pX1Y1)/Math.log(2);
+            
+            return npmi;
+        }
 
     }
 
