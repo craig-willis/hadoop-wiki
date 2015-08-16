@@ -1,13 +1,12 @@
     package edu.gslis.hadoop.wiki;
 
 import java.io.IOException;
-
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 import java.util.StringTokenizer;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
@@ -40,7 +39,9 @@ import org.lemurproject.kstem.Stemmer;
 public class WikiWordCount extends Configured implements Tool 
 {
 
-    static int MIN_FREQ = 500;
+    static int MIN_FREQ = 1;
+
+    static int WIN_SIZE = 10;
     
     public static class WikiWordCountMapper extends MapReduceBase 
         implements Mapper<LongWritable, WikiPage, Text, IntWritable> 
@@ -70,22 +71,29 @@ public class WikiWordCount extends Configured implements Tool
           line = line.replaceAll("[^A-Za-z0-9]", " ");
           line = line.toLowerCase();
         
+          // Stem
           StringTokenizer tokenizer = new StringTokenizer(line);
-          Set<String> words = new HashSet<String>();
-
+          List<String> stemmed = new ArrayList<String>();
           while (tokenizer.hasMoreTokens()) {
               String w = tokenizer.nextToken();
               if (! w.matches("[0-9]+")) {
-                  words.add(stemmer.stem(w));
+                  stemmed.add(stemmer.stem(w));
               }
           }
-
-          for (String w: words) {
-              word.set(w);
-              output.collect(word, one);
-              reporter.incrCounter(Count.WORDS, 1);
-
+          
+          for (int i=0; i < (stemmed.size() - WikiWordCount.WIN_SIZE) ; i++) {
+              List<String> window = stemmed.subList(i, i + WIN_SIZE);
+              Set<String> pseudoDoc = new HashSet<String>();
+              pseudoDoc.addAll(window);
+              
+              for (String w: pseudoDoc) {
+                  word.set(w);
+                  output.collect(word, one);
+                  reporter.incrCounter(Count.WORDS, 1);
+              }
           }
+          
+          
 
           if ((++numRecords % 100) == 0) {
               reporter.setStatus("Finished processing " + numRecords + " records " 

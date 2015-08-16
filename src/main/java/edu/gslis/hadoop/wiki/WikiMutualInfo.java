@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -120,43 +121,47 @@ public class WikiMutualInfo extends Configured implements Tool
           line = line.toLowerCase();
         
           StringTokenizer tokenizer = new StringTokenizer(line);
-          Set<String> words = new HashSet<String>();
+          List<String> stemmed = new ArrayList<String>();
           while (tokenizer.hasMoreTokens()) {
               String w = tokenizer.nextToken();
               if (! w.matches("[0-9]+")) {
-                  words.add(stemmer.stem(w));
+                  stemmed.add(stemmer.stem(w));
               }
           }
-                    
-          Iterator<String> it1 = words.iterator();
-          while (it1.hasNext()) {
-              // Create an associative array containing all 
-              // co-occurring words.  Note: this is symmetric, 
-              // but shouldn't effect MI values.
-              String word1 = (String)it1.next();
+          for (int i=0; i < (stemmed.size() - WikiWordCount.WIN_SIZE) ; i++) {
+              List<String> window = stemmed.subList(i, i + WikiWordCount.WIN_SIZE);
+              Set<String> words = new HashSet<String>();
+              words.addAll(window);
               
-              // If provided, only collect terms for those words in the list
-              if ((wordList.size() > 0) && (!wordList.contains(word1)))
-                  continue;
-              
-              MapWritable map = new MapWritable();
-              term1.set(word1);
-              
-              Iterator<String> it2 = words.iterator();
-              while (it2.hasNext()) {
-                  String word2 = (String)it2.next();
+              Iterator<String> it1 = words.iterator();
+              while (it1.hasNext()) {
+                  // Create an associative array containing all 
+                  // co-occurring words.  Note: this is symmetric, 
+                  // but shouldn't effect MI values.
+                  String word1 = (String)it1.next();
                   
-                  if (word1.equals(word2)  || (wordList.size() > 0) && (!wordList.contains(word2)))
+                  // If provided, only collect terms for those words in the list
+                  if ((wordList.size() > 0) && (!wordList.contains(word1)))
                       continue;
                   
-                  Text term2 = new Text();
-
-                  term2.set(word2);
-                  map.put(term2, one);
+                  MapWritable map = new MapWritable();
+                  term1.set(word1);
+                  
+                  Iterator<String> it2 = words.iterator();
+                  while (it2.hasNext()) {
+                      String word2 = (String)it2.next();
+                      
+                      if (word1.equals(word2)  || (wordList.size() > 0) && (!wordList.contains(word2)))
+                          continue;
+                      
+                      Text term2 = new Text();
+    
+                      term2.set(word2);
+                      map.put(term2, one);
+                  }
+                  output.collect(term1, map);
               }
-              output.collect(term1, map);
-          }
-          
+          }          
        }
     }
 
@@ -366,28 +371,36 @@ public class WikiMutualInfo extends Configured implements Tool
         Path wcOutputPath = new Path(args[1]);
         Path miOutputPath = new Path(args[2]);
         Path wordListPath = new Path(args[3]);
+        String numDocsStr = null;
+        if (args.length == 5)    
+            numDocsStr = args[4];
 
-        JobConf wc = new JobConf(getConf(), WikiWordCount.class);
-        wc.setJobName("wiki-wordcount");
-
-        wc.setOutputKeyClass(Text.class);
-        wc.setOutputValueClass(IntWritable.class);
-
-        wc.setMapperClass(WikiWordCountMapper.class);
-        wc.setReducerClass(WikiWordCountReducer.class);
-
-        wc.setInputFormat(WikiPageInputFormat.class);
-        wc.setOutputFormat(TextOutputFormat.class);
-
-        FileInputFormat.setInputPaths(wc, inputPath);
-        FileOutputFormat.setOutputPath(wc, wcOutputPath);
-
-        RunningJob job = JobClient.runJob(wc);
-       
-        job.waitForCompletion();
-
-        Counters counters = job.getCounters();
-        int numDocs = (int) counters.findCounter(WikiWordCountMapper.Count.DOCS).getValue();
+        int numDocs = 0;
+        if (numDocsStr == null) {
+            JobConf wc = new JobConf(getConf(), WikiWordCount.class);
+            wc.setJobName("wiki-wordcount");
+    
+            wc.setOutputKeyClass(Text.class);
+            wc.setOutputValueClass(IntWritable.class);
+    
+            wc.setMapperClass(WikiWordCountMapper.class);
+            wc.setReducerClass(WikiWordCountReducer.class);
+    
+            wc.setInputFormat(WikiPageInputFormat.class);
+            wc.setOutputFormat(TextOutputFormat.class);
+    
+            FileInputFormat.setInputPaths(wc, inputPath);
+            FileOutputFormat.setOutputPath(wc, wcOutputPath);
+    
+            RunningJob job = JobClient.runJob(wc);
+           
+            job.waitForCompletion();
+    
+            Counters counters = job.getCounters();
+            numDocs = (int) counters.findCounter(WikiWordCountMapper.Count.DOCS).getValue();
+        }
+        else
+            numDocs = Integer.parseInt(numDocsStr);
         
         
         JobConf mi = new JobConf(getConf(), WikiMutualInfo.class);
